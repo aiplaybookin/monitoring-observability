@@ -16,7 +16,7 @@ export interface TimeRange {
   to: number;
 }
 
-export type TimePreset = '1h' | '6h' | '24h' | '7d' | 'all';
+export type TimePreset = '1d' | '3d' | '1w' | 'all';
 
 /** Wire format for SSE payloads */
 export interface SSESnapshot {
@@ -46,41 +46,12 @@ export type AllRunMetrics = Record<string, RunMetrics>;
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
-export const TAB_KEYS = ['training', 'model', 'system', 'checkpoints', 'progress'] as const;
+export const TAB_KEYS = ['overview', 'architecture', 'milestones', 'infrastructure'] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
 export const TAB_LABELS: Record<TabKey, string> = {
-  training: 'Training',
-  model: 'Model',
-  system: 'System',
-  checkpoints: 'Checkpoints',
-  progress: 'Progress',
+  overview: 'Overview',
+  architecture: 'Architecture Stats',
+  milestones: 'Milestones',
+  infrastructure: 'Infrastructure & Hardware',
 };
-
-/** Metric prefixes for each tab */
-export const TAB_METRICS: Record<TabKey, string[]> = {
-  training: [
-    'loss_t1', 'loss_t2', 'null_router_loss', 'moe_router_loss',
-    'validation_loss', 'token_per_sec', 'batch_per_sec', 'total_tokens',
-  ],
-  model: [
-    'null_ratio', 'gsa_', 'recurrence_', 'mhc_',
-    'moe_favourite_tokens', 'moe_fourier_', 'current_bucket',
-  ],
-  system: [
-    'sys.gpu.', 'sys.cpu_percent', 'gpu_idle_time',
-    'cpu_idle_time', 'sys.net.',
-  ],
-  checkpoints: ['checkpoint_'],
-  progress: [
-    'time_to_b1', 'time_to_b2', 'time_to_3b',
-    'time_to_8b', 'time_to_70b', 'time_to_sft',
-  ],
-};
-
-/** Check if a metric belongs to a tab */
-export function metricMatchesTab(metric: string, tab: TabKey): boolean {
-  return TAB_METRICS[tab].some(
-    (prefix) => metric === prefix || metric.startsWith(prefix)
-  );
-}

@@ -1,40 +1,46 @@
-import { useSSE } from './hooks/useSSE';
-import { useMetricsStore } from './stores/metricsStore';
-import Header from './components/layout/Header';
-import Sidebar from './components/layout/Sidebar';
-import RunBadges from './components/layout/RunBadges';
-import TrainingTab from './components/tabs/TrainingTab';
-import ModelTab from './components/tabs/ModelTab';
-import SystemTab from './components/tabs/SystemTab';
-import CheckpointsTab from './components/tabs/CheckpointsTab';
-import ProgressTab from './components/tabs/ProgressTab';
-import type { TabKey } from './types/metrics';
-
-const TAB_COMPONENTS: Record<TabKey, React.ComponentType> = {
-  training: TrainingTab,
-  model: ModelTab,
-  system: SystemTab,
-  checkpoints: CheckpointsTab,
-  progress: ProgressTab,
-};
+import { useSSE } from './hooks/useSSE'
+import { useMetricsStore } from './stores/metricsStore'
+import { Topbar } from './components/Topbar'
+import { LossMetrics } from './components/LossMetrics'
+import { ThroughputSection } from './components/ThroughputSection'
+import { ArchitectureStats } from './components/ArchitectureStats'
+import { MoEAnalytics } from './components/MoEAnalytics'
+import { TimelineSection } from './components/TimelineSection'
+import { InfrastructureSection } from './components/InfrastructureSection'
+import { CheckpointsSection } from './components/CheckpointsSection'
+import { GeneratedSamples } from './components/GeneratedSamples'
 
 export default function App() {
-  useSSE();
-  const selectedTab = useMetricsStore((s) => s.selectedTab);
-  const TabContent = TAB_COMPONENTS[selectedTab];
+  useSSE()
+  const selectedTab = useMetricsStore(s => s.selectedTab)
 
   return (
-    <div className="h-screen flex flex-col">
-      <Header />
-      <div className="flex flex-1 min-h-0">
-        <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <RunBadges />
-          <main className="flex-1 overflow-auto p-6">
-            <TabContent />
-          </main>
-        </div>
+    <>
+      <Topbar />
+      <div className="dash">
+        {selectedTab === 'overview' && (
+          <>
+            <LossMetrics />
+            <ThroughputSection />
+          </>
+        )}
+        {selectedTab === 'architecture' && (
+          <>
+            <ArchitectureStats />
+            <MoEAnalytics />
+          </>
+        )}
+        {selectedTab === 'milestones' && (
+          <>
+            <TimelineSection />
+            <CheckpointsSection />
+            <GeneratedSamples />
+          </>
+        )}
+        {selectedTab === 'infrastructure' && (
+          <InfrastructureSection />
+        )}
       </div>
-    </div>
-  );
+    </>
+  )
 }

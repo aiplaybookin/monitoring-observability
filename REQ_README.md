@@ -118,3 +118,69 @@ TEST
  "https://18.118.133.106:8443/?user=p12_reader&password=EndGameDashboard" \
  -d "SELECT metric, count(), avg(value) FROM training_observability.metric_points GROUP BY metric"
 ```
+
+## Revision -1 
+ Structural Changes:
+  - Replaced the tabbed layout (Header + Sidebar + Tabs) with a single-page scrollable dashboard matching the target design
+  - Replaced Tailwind CSS with custom CSS variables and styles from the target HTML
+  - Removed the Tailwind Vite plugin from vite.config.ts
+  - Added JetBrains Mono + DM Sans fonts in index.html
+
+  New Components (all data-driven from the Zustand store via SSE):
+  - Topbar — Shows connection status from the store (Live/Connecting/Disconnected)
+  - LossMetrics — Reads loss_t1, loss_t2, null_router_loss, moe_router_loss, validation_loss from the store; charts use MetricChart which pulls real series data
+  - ThroughputSection — Reads token_per_sec, batch_per_sec, null_ratio, total_tokens
+  - ArchitectureStats — Reads gsa_*, recurrence_*, mhc_* metrics
+  - MoEAnalytics — Reads moe_favourite_tokens*, moe_fourier_*, current_bucket* metrics
+  - TimelineSection — Reads time_to_b1/b2/3b/8b/70b/sft progress metrics + builds event log from allRuns metadata
+  - InfrastructureSection — Reads sys.gpu.* (per-GPU utilization/temp/memory), gpu_idle_time, cpu_idle_time, sys.cpu_percent, sys.net.*
+  - CheckpointsSection — Reads all checkpoint_* metrics including benchmarks
+  - GeneratedSamples — Reads checkpoint_quality_* and checkpoint_sample_* metrics
+
+  Data Layer (preserved):
+  - useSSE hook — Still connects to /stream for real-time SSE data
+  - metricsStore — Zustand store unchanged, still handles snapshot/delta/runs_meta
+  - useMetricData hook (new) — Provides useLatestMetric(), useMetricsByPrefix(), useMetricSeries(), useCheckpointMetrics() for extracting values from the store
+  - MetricChart component — Reads directly from the Zustand store to build SVG charts from real time-series data
+
+  When no data is available for a metric, components show "—" or "Awaiting data" placeholders instead of static values.
+
+  ## Revision -2
+  
+    ┌───────────────────────┬─────────────────────────────────┬────────────────────────────┐                                                                                         
+  │       Component       │             Old Key             │    New Key (ClickHouse)    │                                                                                         
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤                                                                                         
+  │ LossMetrics           │ loss_t1                         │ loss/train_t_plus_1        │                                                                                         
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ LossMetrics           │ loss_t2                         │ loss/train_t_plus_2        │                                                                                         
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤                                                                                         
+  │ LossMetrics           │ null_router_loss                │ loss/router_null           │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ LossMetrics           │ moe_router_loss                 │ loss/router_moe            │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ LossMetrics           │ validation_loss                 │ loss                       │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ LossMetrics           │ (new)                           │ loss/train                 │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ ThroughputSection     │ token_per_sec                   │ throughput/tokens_per_sec  │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ ThroughputSection     │ batch_per_sec                   │ throughput/batches_per_sec │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ ThroughputSection     │ total_tokens                    │ tokens/processed_total     │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ ThroughputSection     │ null_ratio                      │ router/null_ratio          │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ ThroughputSection     │ (new)                           │ lr                         │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ ThroughputSection     │ (new)                           │ step_time_ms               │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ InfrastructureSection │ cpu_idle_time / sys.cpu_percent │ cpu/idle_percent           │
+  ├───────────────────────┼─────────────────────────────────┼────────────────────────────┤
+  │ InfrastructureSection │ (new)                           │ step_time_ms (chart)       │
+  └───────────────────────┴─────────────────────────────────┴────────────────────────────┘
+
+  New charts added:
+  - Learning Rate Schedule — lr time series in Throughput
+  - Step Time — step_time_ms time series in both Throughput and Infrastructure
+  - CPU Idle % Over Time — cpu/idle_percent time series in Infrastructure
+  - Training Loss — loss/train added to the loss curves chart

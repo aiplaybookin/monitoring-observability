@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { lttbDecimate } from '../lib/decimation';
 import type {
   AllRunMetrics,
   ConnectionStatus,
@@ -8,8 +9,12 @@ import type {
   SSEDelta,
   SSESnapshot,
   TabKey,
+  TimePreset,
   TimeRange,
 } from '../types/metrics';
+
+/** Maximum points kept per metric series in the store. */
+const MAX_SERIES_POINTS = 4000;
 
 function rawPointsToSeries(points: RawPoint[]): Series {
   return {
@@ -20,11 +25,23 @@ function rawPointsToSeries(points: RawPoint[]): Series {
 }
 
 function appendSeries(existing: Series, points: RawPoint[]): Series {
-  return {
-    steps: [...existing.steps, ...points.map((p) => p[0])],
-    values: [...existing.values, ...points.map((p) => p[1])],
-    timestamps: [...existing.timestamps, ...points.map((p) => p[2])],
-  };
+  const steps = [...existing.steps, ...points.map((p) => p[0])];
+  const values = [...existing.values, ...points.map((p) => p[1])];
+  const timestamps = [...existing.timestamps, ...points.map((p) => p[2])];
+
+  // Cap growth with LTTB downsampling so arrays don't grow unbounded
+  if (steps.length > MAX_SERIES_POINTS) {
+    const { x: dsTimestamps, y: dsValues } = lttbDecimate(timestamps, values, MAX_SERIES_POINTS);
+    // Rebuild steps by finding the original step for each kept timestamp
+    const tsToStep = new Map<number, number>();
+    for (let i = 0; i < timestamps.length; i++) {
+      tsToStep.set(timestamps[i], steps[i]);
+    }
+    const dsSteps = dsTimestamps.map((t) => tsToStep.get(t) ?? 0);
+    return { steps: dsSteps, values: dsValues, timestamps: dsTimestamps };
+  }
+
+  return { steps, values, timestamps };
 }
 
 interface MetricsState {
@@ -33,9 +50,11 @@ interface MetricsState {
   allRuns: RunInfo[];
   selectedRuns: string[];
   timeRange: TimeRange | null;
+  timePreset: TimePreset;
   selectedTab: TabKey;
   connectionStatus: ConnectionStatus;
   setTab: (tab: TabKey) => void;
+  setTimePreset: (preset: TimePreset) => void;
   setConnectionStatus: (status: ConnectionStatus) => void;
   applySnapshot: (data: SSESnapshot) => void;
   applyDelta: (data: SSEDelta) => void;
@@ -52,10 +71,25 @@ export const useMetricsStore = create<MetricsState>((set) => ({
   allRuns: [],
   selectedRuns: [],
   timeRange: null,
-  selectedTab: 'training',
+  timePreset: 'all',
+  selectedTab: 'overview',
   connectionStatus: 'connecting',
 
   setTab: (tab) => set({ selectedTab: tab }),
+  setTimePreset: (preset) => {
+    const now = Date.now() / 1000;
+    const durations: Record<string, number | null> = {
+      '1d': 86400,
+      '3d': 86400 * 3,
+      '1w': 86400 * 7,
+      'all': null,
+    };
+    const dur = durations[preset];
+    set({
+      timePreset: preset,
+      timeRange: dur ? { from: now - dur, to: now } : null,
+    });
+  },
   setConnectionStatus: (status) => set({ connectionStatus: status }),
 
   applySnapshot: (data) =>
