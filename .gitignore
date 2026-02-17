@@ -2,3 +2,4 @@ backend/__pycache__
 backend/.venv
 backend/config.py
 backend/config copy.py
+dashboard.env
