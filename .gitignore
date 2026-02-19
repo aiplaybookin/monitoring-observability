@@ -1,5 +1,5 @@
 backend/__pycache__
+backend/routes/__pycache__
 backend/.venv
-backend/config.py
-backend/config copy.py
 dashboard.env
+.env
